@@ -3,11 +3,11 @@ import asyncio
 from app.utils.logger import log_error
 from app.utils.openai_call_functions import invoke_rag_chain
 
-async def handle_request(session_id, query, history_id):
+async def handle_request(query, session_id):
     try:
         print("Handling request for session:", session_id)
         responses = []
-        async for response in invoke_rag_chain(query, history_id):
+        async for response in invoke_rag_chain(query, session_id):
             responses.append(response)
         print("AI response received")
         return responses

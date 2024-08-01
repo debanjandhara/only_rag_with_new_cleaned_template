@@ -34,8 +34,6 @@ first_vectorise()
 
 def load_vectorstore_and_retriever():
     global vectorstore, retriever
-    vectorstore = None
-    retriever = None
     vectorstore = FAISS.load_local(VECTOR_DB_PATH, embeddings=OpenAIEmbeddings(), allow_dangerous_deserialization=True)
     retriever = vectorstore.as_retriever()
     print("Documents loaded and indexed")
@@ -94,13 +92,13 @@ conversational_rag_chain = RunnableWithMessageHistory(
 print("Conversational RAG chain created")
 
 # Invoke_rag_chain function : Main Function - Supports Streaming
-async def invoke_rag_chain(input_text, history_id=None):
+async def invoke_rag_chain(input_text, session_id=None):
     try:
-        if history_id:
+        if session_id:
             async for response in conversational_rag_chain.astream(
                 {"input": input_text, "chat_history": get_session_history},
                 config={
-                    "configurable": {"session_id": history_id}
+                    "configurable": {"session_id": session_id}
                 },
             ):
                 yield response
@@ -108,7 +106,7 @@ async def invoke_rag_chain(input_text, history_id=None):
             async for response in conversational_rag_chain.astream(
                 {"input": input_text},
                 config={
-                    "configurable": {"session_id": history_id}
+                    "configurable": {"session_id": session_id}
                 },
             ):
                 yield response

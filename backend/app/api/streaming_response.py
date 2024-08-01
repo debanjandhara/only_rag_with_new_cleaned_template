@@ -15,14 +15,14 @@ async def get_chatbot(request: Request):
 @router.post("/stream")
 async def stream_response(request_body: QueryRequest):
     try:
-        print(f"Received query: {request_body.query} with session_id: {request_body.session_id} and history_id: {request_body.history_id}")
+        print(f"Received query: {request_body.query} and session_id: {request_body.session_id}")
 
-        if not request_body.query or not request_body.session_id or not request_body.history_id:
-            error_message = "All 'query', 'session_id', and 'history_id' must be provided"
+        if not request_body.query or not request_body.session_id:
+            error_message = "All 'query' and 'session_id' must be provided"
             print(error_message)
             return JSONResponse(content={"error": error_message}, status_code=400)
 
-        responses = await handle_request(request_body.session_id, request_body.query, request_body.history_id)
+        responses = await handle_request(request_body.query, request_body.session_id)
         if responses is None:
             error_message = "Error processing the request"
             print(error_message)
