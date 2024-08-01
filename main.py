@@ -147,49 +147,73 @@ conversational_rag_chain = RunnableWithMessageHistory(
 print("Conversational RAG chain created")
 
 # Invocation function
-def invoke_rag_chain(input_text, history_id=None):
+import asyncio
+from fastapi.responses import StreamingResponse
+
+
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from fastapi.responses import StreamingResponse, JSONResponse
+
+
+class QueryRequest(BaseModel):
+    query: str
+    session_id: str
+    history_id: str
+
+# Updated invoke_rag_chain function to support streaming
+async def invoke_rag_chain(input_text, history_id=None):
     try:
+        print("It Starts Here:")
         if history_id:
-            response = conversational_rag_chain.invoke(
+            async for response in conversational_rag_chain.astream(
                 {"input": input_text, "chat_history": get_session_history},
                 config={
                     "configurable": {"session_id": history_id}
                 },
-            )
+            ):
+                print(response)
+                yield response
         else:
-            response = conversational_rag_chain.invoke( 
+            async for response in conversational_rag_chain.astream(
                 {"input": input_text},
                 config={
                     "configurable": {"session_id": history_id}
                 },
-            )
-        answer = response["answer"]
-        
-        return answer
+            ):
+                print(response)
+                yield response
     except Exception as e:
         error_id = "ERR009"
         log_error(error_id, "invoke_rag_chain", str(e))
         print(f"Error {error_id} occurred during RAG chain invocation: {str(e)}")
-        return None
+        # return None
 
-# Function to handle a request and generate the streaming response
 async def handle_request(session_id, query, history_id):
     try:
         print("Handling request for session:", session_id)
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(None, invoke_rag_chain, query, history_id)
+        responses = []
+        async for response in invoke_rag_chain(query, history_id):
+            responses.append(response)
         print("AI response received")
-        return response
+        return responses
     except Exception as e:
         error_id = "ERR001"
         log_error(error_id, "handle_request", str(e))
         print(f"Error {error_id} occurred in handle_request: {str(e)}")
         return None
 
-class QueryRequest(BaseModel):
-    query: str
-    session_id: str
-    history_id: str
+async def stream_response_chunks(responses):
+    try:
+        for response in responses:
+            if 'answer' in response:
+                yield response['answer']
+                await asyncio.sleep(0.01)  # Adjust the sleep time as needed
+    except Exception as e:
+        error_id = "ERR002"
+        log_error(error_id, "stream_response_chunks", str(e))
+        print(f"Error {error_id} occurred in stream_response_chunks: {str(e)}")
+        yield f"Error {error_id}: {str(e)}"
 
 @app.post("/stream")
 async def stream_response(request_body: QueryRequest):
@@ -201,16 +225,13 @@ async def stream_response(request_body: QueryRequest):
             print(error_message)
             return JSONResponse(content={"error": error_message}, status_code=400)
 
-        
-        # insert_message(request_body.history_id, 'User', request_body.query)
-        response = await handle_request(request_body.session_id, request_body.query, request_body.history_id)
-        if response is None:
+        responses = await handle_request(request_body.session_id, request_body.query, request_body.history_id)
+        if responses is None:
             error_message = "Error processing the request"
             print(error_message)
             return JSONResponse(content={"error": error_message}, status_code=500)
 
-        # insert_message(request_body.history_id, 'AI', response)
-        return JSONResponse(content={"response": response}, status_code=200)
+        return StreamingResponse(stream_response_chunks(responses), media_type="text/plain")
     except HTTPException as http_err:
         error_id = "ERR010"
         error_message = f"HTTPException {error_id}: {str(http_err)}"
@@ -221,7 +242,6 @@ async def stream_response(request_body: QueryRequest):
         error_message = f"Error {error_id}: {str(e)}"
         print(error_message)
         return JSONResponse(content={"error": error_message}, status_code=500)
-
 
 # --------------------------------------------------------
 

@@ -62,14 +62,14 @@ def add_to_vector(filename):
   Merged_Vector_Path = VECTOR_DB_PATH
   
     
-  file_extension = os.path.splitext(filename)[1].lower()  # Get the file extension
+  file_extension = os.path.splitext(filename)[1].lower()
 
-  # Check if the file extension is in the loaders dictionary
+  # File Extension to Loader Selection
   if file_extension in loaders:
       loader_cls = loaders[file_extension]
       loader_kwargs = {}
 
-  # Set loader-specific arguments if needed
+  # Loader-specific arguments - Fixes any special characters
   if file_extension == '.txt':
       loader_kwargs['encoding'] = 'utf-8'
       

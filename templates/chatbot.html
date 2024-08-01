@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+        }
+        #chat-container {
+            max-height: calc(100vh - 4rem);
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="bg-white shadow-md rounded-lg p-6 w-full h-full max-w-4xl flex flex-col">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold">Chatbot</h2>
+            <button onclick="window.location.href='/'" class="bg-blue-500 text-white p-2 rounded hover:bg-blue-600 focus:outline-none">Document Management</button>
+        </div>
+        <div id="chat-container" class="overflow-y-auto flex-grow border p-4 rounded-lg bg-gray-50 mb-4">
+            <!-- Chat messages will be appended here -->
+        </div>
+        <form id="chat-form" class="flex">
+            <input type="text" id="chat-input" class="flex-grow p-2 border rounded-l-lg focus:outline-none" placeholder="Type your message here..." required>
+            <button type="submit" class="bg-blue-500 text-white p-2 rounded-r-lg hover:bg-blue-600 focus:outline-none">Send</button>
+        </form>
+    </div>
+
+    <script>
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+        const chatContainer = document.getElementById('chat-container');
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userMessage = chatInput.value.trim();
+
+            if (userMessage) {
+                // Display user's message
+                appendMessage('User', userMessage);
+
+                // Send user's message to the API
+                try {
+                    const response = await fetch('/stream', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            query: userMessage,
+                            session_id: 'your-session-id',
+                            history_id: 'your-history-id'
+                        })
+                    });
+
+                    if (response.ok) {
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder('utf-8');
+                        let chunk;
+                        let currentAIResponse = '';
+
+                        // Create the AI response element
+                        const aiResponseElement = document.createElement('div');
+                        aiResponseElement.classList.add('mb-2');
+                        aiResponseElement.innerHTML = `<strong>AI:</strong> <span class="ai-response-text"></span>`;
+                        chatContainer.appendChild(aiResponseElement);
+
+                        const aiResponseSpan = aiResponseElement.querySelector('.ai-response-text');
+
+                        // Function to handle chunk processing
+                        const processChunk = async () => {
+                            try {
+                                while (!(chunk = await reader.read()).done) {
+                                    try {
+                                        const text = decoder.decode(chunk.value);
+
+                                        // Debug log for chunk data
+                                        console.log('Received chunk:', text);
+
+                                        // Skip empty or null chunks
+                                        if (text.trim()) {
+                                            currentAIResponse += text;
+                                            aiResponseSpan.textContent = currentAIResponse;
+                                            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+                                            // Introduce a delay to simulate streaming
+                                            await new Promise(resolve => setTimeout(resolve, 100));
+                                        }
+                                    } catch (decodeError) {
+                                        console.error('Error decoding chunk:', decodeError);
+                                    }
+                                }
+                            } catch (streamError) {
+                                console.error('Error reading stream:', streamError);
+                            }
+                        };
+
+                        // Start processing the stream
+                        processChunk();
+                    } else {
+                        // Handle server-side errors
+                        const error = await response.json();
+                        console.error('Server Error:', error);
+                        appendMessage('AI', `Error: ${error.error}`);
+                    }
+                } catch (fetchError) {
+                    // Handle client-side errors
+                    console.error('Fetch Error:', fetchError);
+                    appendMessage('AI', `Error: ${fetchError.message}`);
+                }
+
+                // Clear input field
+                chatInput.value = '';
+            }
+        });
+
+        function appendMessage(sender, message) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('mb-2');
+            messageElement.innerHTML = `<strong>${sender}:</strong> ${message}`;
+            chatContainer.appendChild(messageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+    </script>
+    
+</body>
+</html>

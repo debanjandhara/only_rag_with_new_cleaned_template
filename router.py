@@ -42,6 +42,10 @@ async def upload_form(request: Request):
     files_status = {file: processed_files.get(file, "unprocessed") for file in files}
     return templates.TemplateResponse("upload.html", {"request": request, "files": files_status})
 
+@router.get("/chatbot", response_class=HTMLResponse)
+async def get_chatbot(request: Request):
+    return templates.TemplateResponse("chatbot.html", {"request": request})
+
 @router.post("/upload", response_class=JSONResponse)
 async def upload_files(files: list[UploadFile] = File(...)):
     for file in files:

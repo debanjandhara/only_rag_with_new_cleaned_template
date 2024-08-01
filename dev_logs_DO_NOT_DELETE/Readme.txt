@@ -11,3 +11,4 @@ Caution : the directory / filename of the chunks in vectorDB behaves differently
 > Tasks for DD : 
 
 whenever you're updating something in VectorDB, make sure to load them again....
+
